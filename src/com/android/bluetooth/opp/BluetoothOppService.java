@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2008-2009, Motorola, Inc.
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ *
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -52,7 +53,6 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
 import android.os.PowerManager;
-import java.io.File;
 import android.util.Log;
 import android.os.Process;
 
@@ -85,7 +85,7 @@ public class BluetoothOppService extends Service {
         }
     }
 
-    private static final String TAG = "BtOppService";
+    private static final String TAG = "BtOpp Service";
 
     /** Observer to get notified when the content observer's data changes */
     private BluetoothShareContentObserver mObserver;
@@ -146,7 +146,7 @@ public class BluetoothOppService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        if (V) Log.v(TAG, "onCreate");
+        if (V) Log.v(TAG, "Service onCreate");
         mAdapter = BluetoothAdapter.getDefaultAdapter();
         mSocketListener = new BluetoothOppRfcommListener(mAdapter);
         mShares = Lists.newArrayList();
@@ -181,17 +181,17 @@ public class BluetoothOppService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (V) Log.v(TAG, "onStartCommand");
-        //int retCode = super.onStartCommand(intent, flags, startId);
-        //if (retCode == START_STICKY) {
+        if (V) Log.v(TAG, "Service onStartCommand");
+        int retCode = super.onStartCommand(intent, flags, startId);
+        if (retCode == START_STICKY) {
             if (mAdapter == null) {
                 Log.w(TAG, "Local BT device is not enabled");
             } else {
                 startListener();
             }
             updateFromProvider();
-        //}
-        return START_NOT_STICKY;
+        }
+        return retCode;
     }
 
     private void startListener() {
@@ -212,21 +212,10 @@ public class BluetoothOppService extends Service {
 
     private static final int MSG_INCOMING_CONNECTION_RETRY = 4;
 
-    private static final int STOP_LISTENER = 200;
-
     private Handler mHandler = new Handler() {
         @Override
         public void handleMessage(Message msg) {
             switch (msg.what) {
-                case STOP_LISTENER:
-                    mSocketListener.stop();
-                    mListenStarted = false;
-                    synchronized (BluetoothOppService.this) {
-                        if (mUpdateThread == null) {
-                            stopSelf();
-                        }
-                    }
-                    break;
                 case START_LISTENER:
                     if (mAdapter.isEnabled()) {
                         startSocketListener();
@@ -328,21 +317,11 @@ public class BluetoothOppService extends Service {
 
     @Override
     public void onDestroy() {
-        if (V) Log.v(TAG, "onDestroy");
+        if (V) Log.v(TAG, "Service onDestroy");
         super.onDestroy();
         getContentResolver().unregisterContentObserver(mObserver);
         unregisterReceiver(mBluetoothReceiver);
         mSocketListener.stop();
-
-        if(mBatchs != null) {
-            mBatchs.clear();
-        }
-        if(mShares != null) {
-            mShares.clear();
-        }
-        if(mHandler != null) {
-            mHandler.removeCallbacksAndMessages(null);
-        }
     }
 
     /* suppose we auto accept an incoming OPUSH connection */
@@ -367,8 +346,6 @@ public class BluetoothOppService extends Service {
                         break;
                     case BluetoothAdapter.STATE_TURNING_OFF:
                         if (V) Log.v(TAG, "Receiver DISABLED_ACTION ");
-                        //FIX: Don't block main thread
-                        /*
                         mSocketListener.stop();
                         mListenStarted = false;
                         synchronized (BluetoothOppService.this) {
@@ -376,9 +353,6 @@ public class BluetoothOppService extends Service {
                                 stopSelf();
                             }
                         }
-                        */
-                        mHandler.sendMessage(mHandler.obtainMessage(STOP_LISTENER));
-
                         break;
                 }
             }
@@ -543,18 +517,9 @@ public class BluetoothOppService extends Service {
     }
 
     private void insertShare(Cursor cursor, int arrayPos) {
-        String uriString = cursor.getString(cursor.getColumnIndexOrThrow(BluetoothShare.URI));
-        Uri uri;
-        if (uriString != null) {
-            uri = Uri.parse(uriString);
-            Log.d(TAG, "insertShare parsed URI: " + uri);
-        } else {
-            uri = null;
-            Log.e(TAG, "insertShare found null URI at cursor!");
-        }
         BluetoothOppShareInfo info = new BluetoothOppShareInfo(
                 cursor.getInt(cursor.getColumnIndexOrThrow(BluetoothShare._ID)),
-                uri,
+                cursor.getString(cursor.getColumnIndexOrThrow(BluetoothShare.URI)),
                 cursor.getString(cursor.getColumnIndexOrThrow(BluetoothShare.FILENAME_HINT)),
                 cursor.getString(cursor.getColumnIndexOrThrow(BluetoothShare._DATA)),
                 cursor.getString(cursor.getColumnIndexOrThrow(BluetoothShare.MIMETYPE)),
@@ -563,9 +528,9 @@ public class BluetoothOppService extends Service {
                 cursor.getInt(cursor.getColumnIndexOrThrow(BluetoothShare.VISIBILITY)),
                 cursor.getInt(cursor.getColumnIndexOrThrow(BluetoothShare.USER_CONFIRMATION)),
                 cursor.getInt(cursor.getColumnIndexOrThrow(BluetoothShare.STATUS)),
-                cursor.getLong(cursor.getColumnIndexOrThrow(BluetoothShare.TOTAL_BYTES)),
-                cursor.getLong(cursor.getColumnIndexOrThrow(BluetoothShare.CURRENT_BYTES)),
-                cursor.getLong(cursor.getColumnIndexOrThrow(BluetoothShare.TIMESTAMP)),
+                cursor.getInt(cursor.getColumnIndexOrThrow(BluetoothShare.TOTAL_BYTES)),
+                cursor.getInt(cursor.getColumnIndexOrThrow(BluetoothShare.CURRENT_BYTES)),
+                cursor.getInt(cursor.getColumnIndexOrThrow(BluetoothShare.TIMESTAMP)),
                 cursor.getInt(cursor.getColumnIndexOrThrow(Constants.MEDIA_SCANNED)) != Constants.MEDIA_SCANNED_NOT_SCANNED);
 
         if (V) {
@@ -606,12 +571,23 @@ public class BluetoothOppService extends Service {
         if (info.isReadyToStart()) {
             if (info.mDirection == BluetoothShare.DIRECTION_OUTBOUND) {
                 /* check if the file exists */
-                BluetoothOppSendFileInfo sendFileInfo = BluetoothOppUtility.getSendFileInfo(
-                        info.mUri);
-                if (sendFileInfo == null || sendFileInfo.mInputStream == null) {
+                InputStream i;
+                try {
+                    i = getContentResolver().openInputStream(Uri.parse(info.mUri));
+                } catch (FileNotFoundException e) {
                     Log.e(TAG, "Can't open file for OUTBOUND info " + info.mId);
                     Constants.updateShareStatus(this, info.mId, BluetoothShare.STATUS_BAD_REQUEST);
-                    BluetoothOppUtility.closeSendFileInfo(info.mUri);
+                    return;
+                } catch (SecurityException e) {
+                    Log.e(TAG, "Exception:" + e.toString() + " for OUTBOUND info " + info.mId);
+                    Constants.updateShareStatus(this, info.mId, BluetoothShare.STATUS_BAD_REQUEST);
+                    return;
+                }
+
+                try {
+                    i.close();
+                } catch (IOException ex) {
+                    Log.e(TAG, "IO error when close file for OUTBOUND info " + info.mId);
                     return;
                 }
             }
@@ -676,12 +652,7 @@ public class BluetoothOppService extends Service {
         int statusColumn = cursor.getColumnIndexOrThrow(BluetoothShare.STATUS);
 
         info.mId = cursor.getInt(cursor.getColumnIndexOrThrow(BluetoothShare._ID));
-        if (info.mUri != null) {
-            info.mUri = Uri.parse(stringFromCursor(info.mUri.toString(), cursor,
-                    BluetoothShare.URI));
-        } else {
-            Log.w(TAG, "updateShare() called for ID " + info.mId + " with null URI");
-        }
+        info.mUri = stringFromCursor(info.mUri, cursor, BluetoothShare.URI);
         info.mHint = stringFromCursor(info.mHint, cursor, BluetoothShare.FILENAME_HINT);
         info.mFilename = stringFromCursor(info.mFilename, cursor, BluetoothShare._DATA);
         info.mMimetype = stringFromCursor(info.mMimetype, cursor, BluetoothShare.MIMETYPE);
@@ -705,7 +676,8 @@ public class BluetoothOppService extends Service {
                 && newConfirm != BluetoothShare.USER_CONFIRMATION_PENDING) {
             confirmed = true;
         }
-        info.mConfirm = newConfirm;
+        info.mConfirm = cursor.getInt(cursor
+                .getColumnIndexOrThrow(BluetoothShare.USER_CONFIRMATION));
         int newStatus = cursor.getInt(statusColumn);
 
         if (!BluetoothShare.isStatusCompleted(info.mStatus)
@@ -714,10 +686,10 @@ public class BluetoothOppService extends Service {
         }
 
         info.mStatus = newStatus;
-        info.mTotalBytes = cursor.getLong(cursor.getColumnIndexOrThrow(BluetoothShare.TOTAL_BYTES));
-        info.mCurrentBytes = cursor.getLong(cursor
+        info.mTotalBytes = cursor.getInt(cursor.getColumnIndexOrThrow(BluetoothShare.TOTAL_BYTES));
+        info.mCurrentBytes = cursor.getInt(cursor
                 .getColumnIndexOrThrow(BluetoothShare.CURRENT_BYTES));
-        info.mTimestamp = cursor.getLong(cursor.getColumnIndexOrThrow(BluetoothShare.TIMESTAMP));
+        info.mTimestamp = cursor.getInt(cursor.getColumnIndexOrThrow(BluetoothShare.TIMESTAMP));
         info.mMediaScanned = (cursor.getInt(cursor.getColumnIndexOrThrow(Constants.MEDIA_SCANNED)) != Constants.MEDIA_SCANNED_NOT_SCANNED);
 
         if (confirmed) {
@@ -917,37 +889,6 @@ public class BluetoothOppService extends Service {
         delNum = contentResolver.delete(BluetoothShare.CONTENT_URI,
                 WHERE_INVISIBLE_COMPLETE_INBOUND_FAILED, null);
         if (V) Log.v(TAG, "Deleted complete inbound failed shares, number = " + delNum);
-
-        final String WHERE_INBOUND_INTERRUPTED_ON_POWER_OFF = BluetoothShare.DIRECTION + "="
-                + BluetoothShare.DIRECTION_INBOUND + " AND " + BluetoothShare.STATUS + "="
-                + BluetoothShare.STATUS_RUNNING;
-
-        Cursor cursorToFile = contentResolver.query(BluetoothShare.CONTENT_URI,
-                                  new String[] { BluetoothShare._DATA },
-                                  WHERE_INBOUND_INTERRUPTED_ON_POWER_OFF, null, null);
-
-        // remove the share and the respective file which was interrupted by battery
-        // removal in the local device
-        if (cursorToFile != null) {
-            if (cursorToFile.moveToFirst()) {
-                String fileName = cursorToFile.getString(0);
-                Log.v(TAG, "File to be deleted: " + fileName);
-                File fileToDelete = new File(fileName);
-                if (fileToDelete != null) fileToDelete.delete();
-                delNum = contentResolver.delete(BluetoothShare.CONTENT_URI,
-                             WHERE_INBOUND_INTERRUPTED_ON_POWER_OFF, null);
-                if (V) Log.v(TAG, "Delete aborted inbound share, number = " + delNum);
-            }
-            cursorToFile.close();
-        }
-
-        // on boot : remove unconfirmed inbound shares.
-        final String WHERE_CONFIRMATION_PENDING_INBOUND = BluetoothShare.DIRECTION + "="
-                + BluetoothShare.DIRECTION_INBOUND + " AND " + BluetoothShare.USER_CONFIRMATION
-                + "=" + BluetoothShare.USER_CONFIRMATION_PENDING;
-        delNum = contentResolver.delete(BluetoothShare.CONTENT_URI,
-                 WHERE_CONFIRMATION_PENDING_INBOUND, null);
-        if (V) Log.v(TAG, "Deleted unconfirmed incoming shares, number = " + delNum);
 
         // Only keep the inbound and successful shares for LiverFolder use
         // Keep the latest 1000 to easy db query

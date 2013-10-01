@@ -91,7 +91,6 @@ public class BluetoothOppIncomingFileConfirmActivity extends AlertActivity imple
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        if (V) Log.d(TAG, "onCreate(): action = " + getIntent().getAction());
         super.onCreate(savedInstanceState);
 
         Intent intent = getIntent();

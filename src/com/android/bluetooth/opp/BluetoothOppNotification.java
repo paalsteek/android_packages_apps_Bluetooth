@@ -316,7 +316,7 @@ class BluetoothOppNotification {
             Notification.Builder b = new Notification.Builder(mContext);
             b.setContentTitle(item.description);
             b.setContentInfo(
-                BluetoothOppUtility.formatProgressText(mContext, item.totalTotal, item.totalCurrent));
+                    BluetoothOppUtility.formatProgressText(item.totalTotal, item.totalCurrent));
             b.setProgress(item.totalTotal, item.totalCurrent, item.totalTotal == -1);
             b.setWhen(item.timeStamp);
             if (item.direction == BluetoothShare.DIRECTION_OUTBOUND) {
@@ -330,7 +330,7 @@ class BluetoothOppNotification {
 
             Intent intent = new Intent(Constants.ACTION_LIST);
             intent.setClassName(Constants.THIS_PACKAGE_NAME, BluetoothOppReceiver.class.getName());
-            intent.setDataAndNormalize(Uri.parse(BluetoothShare.CONTENT_URI + "/" + item.id));
+            intent.setData(Uri.parse(BluetoothShare.CONTENT_URI + "/" + item.id));
 
             b.setContentIntent(PendingIntent.getBroadcast(mContext, 0, intent, 0));
             mNotificationMgr.notify(item.id, b.getNotification());
@@ -491,7 +491,7 @@ class BluetoothOppNotification {
 
             Intent intent = new Intent(Constants.ACTION_INCOMING_FILE_CONFIRM);
             intent.setClassName(Constants.THIS_PACKAGE_NAME, BluetoothOppReceiver.class.getName());
-            intent.setDataAndNormalize(contentUri);
+            intent.setData(contentUri);
 
             n.when = timeStamp;
             n.setLatestEventInfo(mContext, title, caption, PendingIntent.getBroadcast(mContext, 0,
@@ -499,7 +499,7 @@ class BluetoothOppNotification {
 
             intent = new Intent(Constants.ACTION_HIDE);
             intent.setClassName(Constants.THIS_PACKAGE_NAME, BluetoothOppReceiver.class.getName());
-            intent.setDataAndNormalize(contentUri);
+            intent.setData(contentUri);
             n.deleteIntent = PendingIntent.getBroadcast(mContext, 0, intent, 0);
 
             mNotificationMgr.notify(id, n);

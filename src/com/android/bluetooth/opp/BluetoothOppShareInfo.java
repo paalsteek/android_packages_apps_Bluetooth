@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2008-2009, Motorola, Inc.
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
  *
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -32,8 +32,6 @@
 
 package com.android.bluetooth.opp;
 
-import android.net.Uri;
-
 /**
  * This class stores information about a single OBEX share, e.g. one object
  * send/receive to a destination address.
@@ -42,7 +40,7 @@ public class BluetoothOppShareInfo {
 
     public int mId;
 
-    public Uri mUri;
+    public String mUri;
 
     public String mHint;
 
@@ -60,17 +58,17 @@ public class BluetoothOppShareInfo {
 
     public int mStatus;
 
-    public long mTotalBytes;
+    public int mTotalBytes;
 
-    public long mCurrentBytes;
+    public int mCurrentBytes;
 
     public long mTimestamp;
 
     public boolean mMediaScanned;
 
-    public BluetoothOppShareInfo(int id, Uri uri, String hint, String filename, String mimetype,
+    public BluetoothOppShareInfo(int id, String uri, String hint, String filename, String mimetype,
             int direction, String destination, int visibility, int confirm, int status,
-            long totalBytes, long currentBytes, long timestamp, boolean mediaScanned) {
+            int totalBytes, int currentBytes, int timestamp, boolean mediaScanned) {
         mId = id;
         mUri = uri;
         mHint = hint;

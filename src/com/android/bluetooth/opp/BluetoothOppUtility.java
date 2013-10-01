@@ -49,10 +49,8 @@ import android.database.Cursor;
 import android.util.Log;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * This class has some utilities for Opp application;
@@ -61,9 +59,6 @@ public class BluetoothOppUtility {
     private static final String TAG = "BluetoothOppUtility";
     private static final boolean D = Constants.DEBUG;
     private static final boolean V = Constants.VERBOSE;
-
-    private static final ConcurrentHashMap<Uri, BluetoothOppSendFileInfo> sSendFileMap
-            = new ConcurrentHashMap<Uri, BluetoothOppSendFileInfo>();
 
     public static BluetoothOppTransferInfo queryRecord(Context context, Uri uri) {
         BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
@@ -194,7 +189,7 @@ public class BluetoothOppUtility {
 
         if (isRecognizedFileType(context, path, mimetype)) {
             Intent activityIntent = new Intent(Intent.ACTION_VIEW);
-            activityIntent.setDataAndTypeAndNormalize(path, mimetype);
+            activityIntent.setDataAndType(path, mimetype);
 
             activityIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             try {
@@ -222,7 +217,7 @@ public class BluetoothOppUtility {
         if (D) Log.d(TAG, "RecognizedFileType() fileUri: " + fileUri + " mimetype: " + mimetype);
 
         Intent mimetypeIntent = new Intent(Intent.ACTION_VIEW);
-        mimetypeIntent.setDataAndTypeAndNormalize(fileUri, mimetype);
+        mimetypeIntent.setDataAndType(fileUri, mimetype);
         List<ResolveInfo> list = context.getPackageManager().queryIntentActivities(mimetypeIntent,
                 PackageManager.MATCH_DEFAULT_ONLY);
 
@@ -245,12 +240,15 @@ public class BluetoothOppUtility {
     /**
      * Helper function to build the progress text.
      */
-    public static String formatProgressText(Context context, long totalBytes, long currentBytes) {
+    public static String formatProgressText(long totalBytes, long currentBytes) {
         if (totalBytes <= 0) {
-            return context.getString(R.string.format_progress_text,0);
+            return "0%";
         }
         long progress = currentBytes * 100 / totalBytes;
-        return context.getString(R.string.format_progress_text, progress);
+        StringBuilder sb = new StringBuilder();
+        sb.append(progress);
+        sb.append('%');
+        return sb.toString();
     }
 
     /**
@@ -305,25 +303,4 @@ public class BluetoothOppUtility {
                 transInfo.mDeviceName);
     }
 
-    static void putSendFileInfo(Uri uri, BluetoothOppSendFileInfo sendFileInfo) {
-        if (D) Log.d(TAG, "putSendFileInfo: uri=" + uri + " sendFileInfo=" + sendFileInfo);
-        sSendFileMap.put(uri, sendFileInfo);
-    }
-
-    static BluetoothOppSendFileInfo getSendFileInfo(Uri uri) {
-        if (D) Log.d(TAG, "getSendFileInfo: uri=" + uri);
-        BluetoothOppSendFileInfo info = sSendFileMap.get(uri);
-        return (info != null) ? info : BluetoothOppSendFileInfo.SEND_FILE_INFO_ERROR;
-    }
-
-    static void closeSendFileInfo(Uri uri) {
-        if (D) Log.d(TAG, "closeSendFileInfo: uri=" + uri);
-        BluetoothOppSendFileInfo info = sSendFileMap.remove(uri);
-        if (info != null && info.mInputStream != null) {
-            try {
-                info.mInputStream.close();
-            } catch (IOException ignored) {
-            }
-        }
-    }
 }
